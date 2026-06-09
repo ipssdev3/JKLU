@@ -1106,7 +1106,7 @@ mvn -pl ipss.plugin.3phase -Dtest=IEEE_13BusFeeder_Test,IEEE123Feeder_Dstab_Test
 ## Release Checklist
 
 - Complete direct-kernel implementation on `feature/direct-complex-kernel`.
-- Change `pom.xml` version to `2.0.0` only after the direct kernel is complete.
+- Confirm `pom.xml` version is `2.0.0` on the direct-kernel branch.
 - Remove any remaining block-real backend assumptions from `tdcomplex`.
 - Apply AMD `P/Q` symbolic ordering to complex factorization and solve.
 - Complete true `Symbolic.R` BTF block factorization parity checks against the
