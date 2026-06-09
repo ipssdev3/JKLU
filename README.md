@@ -32,8 +32,8 @@ https://github.com/dss-extensions/klusolve
 
 JKLU 2.0.0 direct complex kernel benchmark snapshot:
 
-The following results were measured on the `feature/direct-complex-kernel`
-branch. The weighted factor/refactor score is:
+The following results were refreshed on `master` with JKLU `2.0.0` and local
+AMDJ/BTFJ `1.0.2-SNAPSHOT` dependencies. The weighted factor/refactor score is:
 
     0.2 * factor + 0.8 * refactor
 
@@ -49,24 +49,35 @@ Benchmark environment:
 
 Complex Y-matrix target sweep:
 
-This sweep exercises the new direct Java complex numeric kernel on complex
-power-system admittance matrices generated from InterPSS feeders/cases plus
-the TAMU ACTIVSg70K power-network matrix. Settings were `warmups=10`,
-`iterations=50` except where noted.
+This sweep exercises the direct Java complex numeric kernel on complex
+power-system admittance matrices generated from InterPSS feeders/cases. Settings
+were `warmups=10`, `iterations=50`, `repeats=3` except where noted. Rows report
+the best weighted factor/refactor repeat.
 
 | Case | Matrix size | Input nnz | Iterations | JKLU factor ms | JKLU refactor ms | Native factor ms | Native refactor ms | Weighted factor/refactor | Fill | Residual/conclusion |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| Ckt24 | 18177 x 18177 | 43485 | 50 | 1.534 | 0.415 | 0.467 | 0.263 | 47.6% | 44347 match | Tight residual; fragmented feeder case. |
-| IEEE8500 | 14631 x 14631 | 52683 | 50 | 1.561 | 0.543 | 0.659 | 0.326 | 52.6% | 60361 match | Tight residual; fragmented feeder case. |
-| ACTIVSg25k | 25000 x 25000 | 85220 | 50 | 5.666 | 1.901 | 3.495 | 1.437 | 69.6% | 186800 match | Correct fill/residual. |
-| ACTIVSg70K | 69999 x 69999 | 154313 | 30 | 13.741 | 5.992 | 10.544 | 4.967 | 80.6% | 542881 match | Meets large-case 80% target in this paired run. |
-| OpenEI | 78484 x 78484 | 294398 | 30 | 23.778 | 11.720 | 20.458 | 10.265 | 87.1% | 960910 match | Residual 1.907199e-16. |
+| Ckt7 | 3768 x 3768 | 18638 | 50 | 0.620 | 0.233 | 0.195 | 0.103 | 39.3% | 18756 match | Tight residual; tiny fragmented feeder case. |
+| Ckt24 | 18177 x 18177 | 43485 | 50 | 1.320 | 0.378 | 0.432 | 0.243 | 49.5% | 44347 match | Tight residual; fragmented feeder case. |
+| IEEE8500 | 14631 x 14631 | 52683 | 50 | 1.554 | 0.477 | 0.734 | 0.365 | 63.4% | 60361 match | Tight residual; fragmented feeder case. |
+| ACTIVSg25k | 25000 x 25000 | 85220 | 50 | 4.963 | 1.926 | 3.601 | 1.545 | 77.2% | 186800 match | Correct fill/residual. |
+| ACTIVSg70K | 69999 x 69999 | 154313 | 30 | 13.741 | 5.992 | 10.544 | 4.967 | 80.6% | 542881 match | Retained from earlier run; local matrix artifact not present in this refresh. |
+| OpenEI | 78484 x 78484 | 294398 | 30 | 26.299 | 12.270 | 23.246 | 11.397 | 91.3% | 960910 match | Residual 1.907199e-16. |
 
-Retained OpenEI solve-inclusive pair:
+Change versus the previous README snapshot:
+
+| Case | Previous weighted factor/refactor | Refreshed weighted factor/refactor | Change |
+|---|---:|---:|---:|
+| Ckt24 | 47.6% | 49.5% | +1.9 percentage points |
+| IEEE8500 | 52.6% | 63.4% | +10.8 percentage points |
+| ACTIVSg25k | 69.6% | 77.2% | +7.6 percentage points |
+| ACTIVSg70K | 80.6% | 80.6% | Retained |
+| OpenEI | 87.1% | 91.3% | +4.2 percentage points |
+
+OpenEI solve-inclusive pair from the same refresh:
 
 | Case | Matrix size | Input nnz | JKLU factor ms | JKLU refactor ms | JKLU solve ms | Native factor ms | Native refactor ms | Native solve ms | Fill | Residual |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| OpenEI complex Y matrix | 78484 x 78484 | 294398 | 25.366 | 12.919 | 1.568 | 20.413 | 10.379 | 1.314 | 960910 match | 1.907199e-16 |
+| OpenEI complex Y matrix | 78484 x 78484 | 294398 | 26.299 | 12.270 | 1.684 | 23.246 | 11.397 | 1.550 | 960910 match | 1.907199e-16 |
 
 Real-valued Newton-Raphson Jacobian benchmark:
 
@@ -79,10 +90,19 @@ enabled.
 
 | Case | Matrix size | Input nnz | JKLU factor ms | JKLU refactor ms | JKLU solve ms | Native factor ms | Native refactor ms | Native solve ms | Weighted factor/refactor | Solve native/JKLU | Fill | Residual |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| ACTIVSg25k best | 50000 x 50000 | 335468 | 17.064 | 9.133 | 0.909 | 14.622 | 8.144 | 0.905 | 88.06% | 99.62% | 725968 match | 7.26e-15 |
-| ACTIVSg25k avg | 50000 x 50000 | 335468 | 17.422 | 9.159 | 0.909 | 14.660 | 8.183 | 0.899 | 87.67% | 98.93% | 725968 match | 7.26e-15 |
-| OpenEI best | 156968 x 156968 | 1146882 | 111.537 | 77.089 | 6.190 | 98.468 | 60.403 | 5.264 | 80.99% | 85.04% | 3560808 match | 2.96e-16 |
-| OpenEI avg | 156968 x 156968 | 1146882 | 111.653 | 77.339 | 6.174 | 96.930 | 59.819 | 5.240 | 79.86% | 84.86% | 3560808 match | 2.96e-16 |
+| ACTIVSg25k best | 50000 x 50000 | 335468 | 18.268 | 9.405 | 0.934 | 15.641 | 8.672 | 0.932 | 90.05% | 99.81% | 725968 match | 7.26e-15 |
+| ACTIVSg25k avg | 50000 x 50000 | 335468 | 18.441 | 9.444 | 0.948 | 15.477 | 8.574 | 0.926 | 88.55% | 97.75% | 725968 match | 7.26e-15 |
+| OpenEI best | 156968 x 156968 | 1146882 | 112.716 | 77.483 | 6.191 | 99.317 | 60.681 | 5.105 | 80.93% | 82.46% | 3560808 match | 2.96e-16 |
+| OpenEI avg | 156968 x 156968 | 1146882 | 113.518 | 77.714 | 6.269 | 98.622 | 60.625 | 5.263 | 80.38% | 83.96% | 3560808 match | 2.96e-16 |
+
+Change versus the previous README snapshot:
+
+| Case | Previous weighted factor/refactor | Refreshed weighted factor/refactor | Change |
+|---|---:|---:|---:|
+| ACTIVSg25k best | 88.06% | 90.05% | +1.99 percentage points |
+| ACTIVSg25k avg | 87.67% | 88.55% | +0.88 percentage points |
+| OpenEI best | 80.99% | 80.93% | -0.06 percentage points |
+| OpenEI avg | 79.86% | 80.38% | +0.52 percentage points |
 
 These benchmarks compare pure-Java JKLU against a local native KLUSolve
 benchmark binary on the same Matrix Market inputs. They are a performance

@@ -1,4 +1,6 @@
 /target/*
+!/target/ipss-matrices/
+!/target/ipss-matrices/*
 /.settings/
 /.project
 /.classpath
