@@ -35,9 +35,7 @@ docs/JKLU-2.0.0-Direct-Complex-Kernel-Feature-Plan.md
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| Done | Java 8-compatible release setup | `pom.xml` uses Maven compiler `<release>8</release>`. |
-| Done | Release version | `pom.xml` version is `1.1.0`. |
-| Done | Complex numeric container | Added `KLU_z_numeric` for complex numeric factorization state. |
+| Done | Release version | `pom.xml` version was `1.1.0` for the 1.1.0 release. |
 | Done | Complex API package | Added `edu.ufl.cise.klu.tdcomplex`. |
 | Done | Low-level complex factor/solve API | Added `klu_z_factor`, `klu_z_solve`, and `klu_z_refactor`. |
 | Done | Complex math helpers | Added offset-based helpers for interleaved complex arrays. |
