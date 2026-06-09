@@ -36,11 +36,12 @@ static Csc read_matrix(const std::string& path) {
     std::istringstream header(line);
     std::string banner, object, format, field, symmetry;
     header >> banner >> object >> format >> field >> symmetry;
-    std::transform(banner.begin(), banner.end(), banner.begin(), ::tolower);
-    std::transform(object.begin(), object.end(), object.begin(), ::tolower);
-    std::transform(format.begin(), format.end(), format.begin(), ::tolower);
-    std::transform(field.begin(), field.end(), field.begin(), ::tolower);
-    std::transform(symmetry.begin(), symmetry.end(), symmetry.begin(), ::tolower);
+    auto to_lower = [](unsigned char c) { return static_cast<char>(std::tolower(c)); };
+    std::transform(banner.begin(), banner.end(), banner.begin(), to_lower);
+    std::transform(object.begin(), object.end(), object.begin(), to_lower);
+    std::transform(format.begin(), format.end(), format.begin(), to_lower);
+    std::transform(field.begin(), field.end(), field.begin(), to_lower);
+    std::transform(symmetry.begin(), symmetry.end(), symmetry.begin(), to_lower);
     if (banner != "%%matrixmarket" || object != "matrix" || format != "coordinate") {
         throw std::runtime_error("unsupported matrix header");
     }
