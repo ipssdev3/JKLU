@@ -120,7 +120,6 @@ public class Dklu_analyze extends Dklu_internal
 		long phaseStart = profile == null ? 0 : System.nanoTime() ;
 		for (k = 0 ; k < n ; k++)
 		{
-			ASSERT (Pbtf [k] >= 0 && Pbtf [k] < n) ;
 			Pinv [Pbtf [k]] = k ;
 		}
 		if (profile != null)
@@ -150,7 +149,6 @@ public class Dklu_analyze extends Dklu_internal
 			k1 = R [block] ;
 			k2 = R [block+1] ;
 			nk = k2 - k1 ;
-			PRINTF ("BLOCK %d, k1 %d k2-1 %d nk %d\n", block, k1, k2-1, nk) ;
 
 			/* ------------------------------------------------------------------ */
 			/* construct the kth block, C */
@@ -175,7 +173,6 @@ public class Dklu_analyze extends Dklu_internal
 					else
 					{
 						/* (newrow, newcol) is an entry in the block */
-						ASSERT (newrow < k2) ;
 						newrow -= k1 ;
 						Ci [pc++] = newrow ;
 					}
@@ -310,17 +307,12 @@ public class Dklu_analyze extends Dklu_internal
 			/* ------------------------------------------------------------------ */
 
 			phaseStart = profile == null ? 0 : System.nanoTime() ;
-			PRINTF ("Pblk, 1-based:\n") ;
 			for (k = 0 ; k < nk ; k++)
 			{
-				ASSERT (k + k1 < n) ;
-				ASSERT (Pblk [k] + k1 < n) ;
 				Q [k + k1] = Qbtf [Pblk [k] + k1] ;
 			}
 			for (k = 0 ; k < nk ; k++)
 			{
-				ASSERT (k + k1 < n) ;
-				ASSERT (Pblk [k] + k1 < n) ;
 				P [k + k1] = Pbtf [Pblk [k] + k1] ;
 			}
 			if (profile != null)
@@ -329,9 +321,6 @@ public class Dklu_analyze extends Dklu_internal
 				profile.orderedBlocks++ ;
 			}
 		}
-
-		PRINTF ("nzoff %d  Ap[n] %d\n", nzoff, Ap [n]) ;
-		ASSERT (nzoff >= 0 && nzoff <= Ap [n]) ;
 
 		/* return estimates of # of nonzeros in L including diagonal */
 		Symbolic.lnz = lnz ;           /* EMPTY if COLAMD used */
@@ -487,7 +476,6 @@ public class Dklu_analyze extends Dklu_internal
 				k1 = R [block] ;
 				k2 = R [block+1] ;
 				nk = k2 - k1 ;
-				PRINTF ("block %d size %d\n", block, nk) ;
 				maxblock = MAX (maxblock, nk) ;
 			}
 		}
@@ -507,8 +495,7 @@ public class Dklu_analyze extends Dklu_internal
 
 		Symbolic.nblocks = nblocks ;
 
-		PRINTF ("maxblock size %d\n", maxblock) ;
-		Symbolic.maxblock = maxblock ;
+			Symbolic.maxblock = maxblock ;
 
 		/* ---------------------------------------------------------------------- */
 		/* allocate more workspace, for analyze_worker */
@@ -536,8 +523,7 @@ public class Dklu_analyze extends Dklu_internal
 
 		if (Common.status == KLU_OK)
 		{
-			PRINTF (("calling analyze_worker\n")) ;
-			phaseStart = profile == null ? 0 : System.nanoTime() ;
+				phaseStart = profile == null ? 0 : System.nanoTime() ;
 			Common.status = analyze_worker (n, Ap, Ai, nblocks, Pbtf, Qbtf, R,
 				ordering, P, Q, Lnz, Pblk, Cp, Ci, Cilen, Pinv, Symbolic, Common,
 				profile) ;
@@ -545,8 +531,7 @@ public class Dklu_analyze extends Dklu_internal
 			{
 				profile.workerNs += System.nanoTime() - phaseStart ;
 			}
-			PRINTF ("analyze_worker done\n") ;
-		}
+			}
 
 		/* ---------------------------------------------------------------------- */
 		/* free all workspace */
