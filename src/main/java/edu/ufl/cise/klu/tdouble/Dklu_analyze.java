@@ -86,11 +86,22 @@ public class Dklu_analyze extends Dklu_internal
 			double[] Lnz, int[] Pblk, int[] Cp, int[] Ci, int Cilen,
 			int[] Pinv, KLU_symbolic Symbolic, KLU_common Common)
 	{
+		return analyze_worker(n, Ap, Ai, nblocks, Pbtf, Qbtf, R, ordering, P, Q,
+				Lnz, Pblk, Cp, Ci, Cilen, Pinv, Symbolic, Common, null);
+	}
+
+	private static int analyze_worker(int n, int[] Ap, int[] Ai, int nblocks,
+			int[] Pbtf, int[] Qbtf, int[] R, int ordering, int[] P, int[] Q,
+			double[] Lnz, int[] Pblk, int[] Cp, int[] Ci, int Cilen,
+			int[] Pinv, KLU_symbolic Symbolic, KLU_common Common,
+			AnalyzeProfile profile)
+	{
 		double[] amd_Info = new double[AMD_INFO] ;
 		double lnz, lnz1, flops, flops1 ;
 		int k1, k2, nk, k, block, oldcol, pend, newcol, result, pc, p, newrow,
 			maxnz, nzoff, ok, err = KLU_INVALID ;
 		int[] cstats = new int[COLAMD_STATS];
+		int naturalBlockMax = naturalBlockMax() ;
 
 		/* ---------------------------------------------------------------------- */
 		/* initializations */
@@ -106,10 +117,15 @@ public class Dklu_analyze extends Dklu_internal
 				Pinv [k] = EMPTY ;
 			}
 		}
+		long phaseStart = profile == null ? 0 : System.nanoTime() ;
 		for (k = 0 ; k < n ; k++)
 		{
 			ASSERT (Pbtf [k] >= 0 && Pbtf [k] < n) ;
 			Pinv [Pbtf [k]] = k ;
+		}
+		if (profile != null)
+		{
+			profile.workerInverseNs += System.nanoTime() - phaseStart ;
 		}
 		if (!NDEBUG) {
 			for (k = 0 ; k < n ; k++) ASSERT (Pinv [k] != EMPTY) ;
@@ -140,6 +156,7 @@ public class Dklu_analyze extends Dklu_internal
 			/* construct the kth block, C */
 			/* ------------------------------------------------------------------ */
 
+			phaseStart = profile == null ? 0 : System.nanoTime() ;
 			Lnz [block] = EMPTY ;
 			pc = 0 ;
 			for (k = k1 ; k < k2 ; k++)
@@ -167,12 +184,17 @@ public class Dklu_analyze extends Dklu_internal
 			Cp [nk] = pc ;
 			maxnz = MAX (maxnz, pc) ;
 			if (!NDEBUG) ASSERT (klu_valid (nk, Cp, Ci, null)) ;
+			if (profile != null)
+			{
+				profile.workerBuildNs += System.nanoTime() - phaseStart ;
+			}
 
 			/* ------------------------------------------------------------------ */
 			/* order the block C */
 			/* ------------------------------------------------------------------ */
 
-			if (nk <= 3)
+			phaseStart = profile == null ? 0 : System.nanoTime() ;
+			if (nk <= naturalBlockMax)
 			{
 
 				/* -------------------------------------------------------------- */
@@ -186,6 +208,10 @@ public class Dklu_analyze extends Dklu_internal
 				lnz1 = nk * (nk + 1) / 2 ;
 				flops1 = nk * (nk - 1) / 2 + (nk-1)*nk*(2*nk-1) / 6 ;
 				ok = TRUE ;
+				if (profile != null)
+				{
+					profile.tinyBlocks++ ;
+				}
 
 			}
 			else if (ordering == 0)
@@ -214,6 +240,10 @@ public class Dklu_analyze extends Dklu_internal
 					/* get the symmetry of the biggest block */
 					Symbolic.symmetry = amd_Info [AMD_SYMMETRY] ;
 				}
+				if (profile != null)
+				{
+					profile.amdBlocks++ ;
+				}
 
 			}
 			else if (ordering == 1)
@@ -236,6 +266,10 @@ public class Dklu_analyze extends Dklu_internal
 				{
 					Pblk [k] = Cp [k] ;
 				}
+				if (profile != null)
+				{
+					profile.colamdBlocks++ ;
+				}
 
 			}
 			else
@@ -248,6 +282,14 @@ public class Dklu_analyze extends Dklu_internal
 				lnz1 = Common.user_order.order(nk, Cp, Ci, Pblk, Common) ;
 				flops1 = EMPTY ;
 				ok = (lnz1 != 0) ? 1 : 0 ;
+				if (profile != null)
+				{
+					profile.userBlocks++ ;
+				}
+			}
+			if (profile != null)
+			{
+				profile.workerOrderNs += System.nanoTime() - phaseStart ;
 			}
 
 			if (ok != 1)
@@ -267,6 +309,7 @@ public class Dklu_analyze extends Dklu_internal
 			/* combine the preordering with the BTF ordering */
 			/* ------------------------------------------------------------------ */
 
+			phaseStart = profile == null ? 0 : System.nanoTime() ;
 			PRINTF ("Pblk, 1-based:\n") ;
 			for (k = 0 ; k < nk ; k++)
 			{
@@ -279,6 +322,11 @@ public class Dklu_analyze extends Dklu_internal
 				ASSERT (k + k1 < n) ;
 				ASSERT (Pblk [k] + k1 < n) ;
 				P [k + k1] = Pbtf [Pblk [k] + k1] ;
+			}
+			if (profile != null)
+			{
+				profile.workerCombineNs += System.nanoTime() - phaseStart ;
+				profile.orderedBlocks++ ;
 			}
 		}
 
@@ -312,6 +360,9 @@ public class Dklu_analyze extends Dklu_internal
 		int[] structural_rank = new int [1] ;
 		int[] Qbtf, Cp, Ci, Pinv, Pblk, Pbtf, P, Q, R ;
 		int nblocks, nz, block, maxblock, k1, k2, nk, do_btf, ordering, k, Cilen ;
+		AnalyzeProfile profile = profileAnalyze() ? new AnalyzeProfile() : null ;
+		long phaseStart ;
+		long totalStart = profile == null ? 0 : System.nanoTime() ;
 
 		/* ---------------------------------------------------------------------- */
 		/* allocate the Symbolic object, and check input matrix */
@@ -358,8 +409,13 @@ public class Dklu_analyze extends Dklu_internal
 		/* allocate workspace for BTF permutation */
 		/* ---------------------------------------------------------------------- */
 
+		phaseStart = profile == null ? 0 : System.nanoTime() ;
 		Pbtf = klu_malloc_int (n, Common) ;
 		Qbtf = klu_malloc_int (n, Common) ;
+		if (profile != null)
+		{
+			profile.btfWorkspaceAllocNs += System.nanoTime() - phaseStart ;
+		}
 		if (Common.status < KLU_OK)
 		{
 			//KLU_free (Pbtf, n, sizeof (int), Common) ;
@@ -402,8 +458,13 @@ public class Dklu_analyze extends Dklu_internal
 				return (null) ;
 			}
 
+			phaseStart = profile == null ? 0 : System.nanoTime() ;
 			nblocks = btf_order (n, Ap, Ai, Common.maxwork, work, Pbtf, Qbtf, R,
 					structural_rank) ;
+			if (profile != null)
+			{
+				profile.btfOrderNs += System.nanoTime() - phaseStart ;
+			}
 			Symbolic.structural_rank = structural_rank[0] ;
 			Common.structural_rank = Symbolic.structural_rank ;
 			Common.work += work[0] ;
@@ -453,10 +514,21 @@ public class Dklu_analyze extends Dklu_internal
 		/* allocate more workspace, for analyze_worker */
 		/* ---------------------------------------------------------------------- */
 
+		phaseStart = profile == null ? 0 : System.nanoTime() ;
 		Pblk = klu_malloc_int (maxblock, Common) ;
 		Cp   = klu_malloc_int (maxblock + 1, Common) ;
 		Ci   = klu_malloc_int (MAX (Cilen, nz+1), Common) ;
 		Pinv = klu_malloc_int (n, Common) ;
+		if (profile != null)
+		{
+			profile.workerWorkspaceAllocNs += System.nanoTime() - phaseStart ;
+			profile.n = n ;
+			profile.nz = nz ;
+			profile.nblocks = nblocks ;
+			profile.maxblock = maxblock ;
+			profile.doBtf = do_btf ;
+			profile.ordering = ordering ;
+		}
 
 		/* ---------------------------------------------------------------------- */
 		/* order each block of the BTF ordering, and a fill-reducing ordering */
@@ -465,8 +537,14 @@ public class Dklu_analyze extends Dklu_internal
 		if (Common.status == KLU_OK)
 		{
 			PRINTF (("calling analyze_worker\n")) ;
+			phaseStart = profile == null ? 0 : System.nanoTime() ;
 			Common.status = analyze_worker (n, Ap, Ai, nblocks, Pbtf, Qbtf, R,
-				ordering, P, Q, Lnz, Pblk, Cp, Ci, Cilen, Pinv, Symbolic, Common) ;
+				ordering, P, Q, Lnz, Pblk, Cp, Ci, Cilen, Pinv, Symbolic, Common,
+				profile) ;
+			if (profile != null)
+			{
+				profile.workerNs += System.nanoTime() - phaseStart ;
+			}
 			PRINTF ("analyze_worker done\n") ;
 		}
 
@@ -491,7 +569,64 @@ public class Dklu_analyze extends Dklu_internal
 			//klu_free_symbolic (Symbolic, Common) ;
 			Symbolic = null;
 		}
+		if (profile != null)
+		{
+			profile.totalNs = System.nanoTime() - totalStart ;
+			printAnalyzeProfile(profile, Symbolic, Common) ;
+		}
 		return (Symbolic) ;
+	}
+
+	private static boolean profileAnalyze()
+	{
+		return Boolean.getBoolean("jklu.profile.analyze") ;
+	}
+
+	private static int naturalBlockMax()
+	{
+		int value = Integer.getInteger("jklu.analyze.naturalBlockMax", 3).intValue() ;
+		return value < 3 ? 3 : value ;
+	}
+
+	private static void printAnalyzeProfile(AnalyzeProfile profile,
+			KLU_symbolic Symbolic, KLU_common Common)
+	{
+		System.out.println("jkluAnalyzeProfile" +
+				",n=" + profile.n +
+				",nz=" + profile.nz +
+				",btf=" + profile.doBtf +
+				",ordering=" + profile.ordering +
+				",nblocks=" + profile.nblocks +
+				",maxblock=" + profile.maxblock +
+				",status=" + Common.status +
+				",structuralRank=" + (Symbolic == null ? EMPTY : Symbolic.structural_rank) +
+				",totalMs=" + millis(profile.totalNs) +
+				",btfWorkspaceAllocMs=" + millis(profile.btfWorkspaceAllocNs) +
+				",btfOrderMs=" + millis(profile.btfOrderNs) +
+				",workerWorkspaceAllocMs=" + millis(profile.workerWorkspaceAllocNs) +
+				",workerMs=" + millis(profile.workerNs) +
+				",workerInverseMs=" + millis(profile.workerInverseNs) +
+				",workerBuildMs=" + millis(profile.workerBuildNs) +
+				",workerOrderMs=" + millis(profile.workerOrderNs) +
+				",workerCombineMs=" + millis(profile.workerCombineNs) +
+				",orderedBlocks=" + profile.orderedBlocks +
+				",tinyBlocks=" + profile.tinyBlocks +
+				",amdBlocks=" + profile.amdBlocks +
+				",colamdBlocks=" + profile.colamdBlocks +
+				",userBlocks=" + profile.userBlocks) ;
+	}
+
+	private static double millis(long ns)
+	{
+		return ns / 1.0e6 ;
+	}
+
+	private static final class AnalyzeProfile
+	{
+		int n, nz, doBtf, ordering, nblocks, maxblock ;
+		int orderedBlocks, tinyBlocks, amdBlocks, colamdBlocks, userBlocks ;
+		long totalNs, btfWorkspaceAllocNs, btfOrderNs, workerWorkspaceAllocNs,
+			workerNs, workerInverseNs, workerBuildNs, workerOrderNs, workerCombineNs ;
 	}
 
 	/**

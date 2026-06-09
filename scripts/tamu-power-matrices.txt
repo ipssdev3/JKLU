@@ -1,0 +1,8 @@
+# group/name entries from the SuiteSparse Matrix Collection.
+# These are power-system or power-network matrices used for broad JKLU/native KLU comparisons.
+TAMU_SmartGridCenter/ACTIVSg10K
+TAMU_SmartGridCenter/ACTIVSg70K
+PowerSystem/power197k
+HVDC/hvdc1
+HVDC/hvdc2
+Rommes/bips07_1693
