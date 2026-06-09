@@ -260,10 +260,15 @@ public class Zklu_solve extends Zklu_internal
 				}
 				}
 
-						private static void solveFactoredFlatColumns(KLU_z_numeric Numeric, double[] x)
-						{
-							applyPivots(Numeric, x);
-							int[] directLp = Numeric.DirectLp;
+							private static void solveFactoredFlatColumns(KLU_z_numeric Numeric, double[] x)
+							{
+								applyPivots(Numeric, x);
+								if (Numeric.nzoff == 0)
+								{
+									solveFactoredFlatColumnsNoOffDiagonal(Numeric, x);
+									return;
+								}
+								int[] directLp = Numeric.DirectLp;
 							int[] directLi = Numeric.DirectLi;
 							double[] directLx = Numeric.DirectLx;
 							int[] directUp = Numeric.DirectUp;
@@ -271,12 +276,17 @@ public class Zklu_solve extends Zklu_internal
 							double[] directUx = Numeric.DirectUx;
 							double[] udiag = Numeric.Udiag;
 							double[] udiagInv = Numeric.UdiagInv;
-							for (int block = Numeric.nblocks - 1; block >= 0; block--)
-						{
-							int k1 = Numeric.R[block];
-							int k2 = Numeric.R[block + 1];
-							for (int col = k1; col < k2; col++)
+								for (int block = Numeric.nblocks - 1; block >= 0; block--)
 							{
+								int k1 = Numeric.R[block];
+								int k2 = Numeric.R[block + 1];
+								if (k2 - k1 == 1 && Numeric.nzoff == 0)
+								{
+									divideFlatColumn(Numeric, x, udiag, udiagInv, k1);
+									continue;
+								}
+								for (int col = k1; col < k2; col++)
+								{
 								double xr = x[2 * col];
 								double xi = x[2 * col + 1];
 										for (int p = directLp[col]; p < directLp[col + 1]; p++)
@@ -321,11 +331,97 @@ public class Zklu_solve extends Zklu_internal
 										}
 						}
 						applyOffDiagonal(Numeric, k1, k2, x);
+						}
+					}
+
+			private static void solveFactoredFlatColumnsNoOffDiagonal(
+					KLU_z_numeric Numeric, double[] x)
+			{
+				int[] directLp = Numeric.DirectLp;
+				int[] directLi = Numeric.DirectLi;
+				double[] directLx = Numeric.DirectLx;
+				int[] directUp = Numeric.DirectUp;
+				int[] directUi = Numeric.DirectUi;
+				double[] directUx = Numeric.DirectUx;
+				double[] udiag = Numeric.Udiag;
+				double[] udiagInv = Numeric.UdiagInv;
+				for (int block = Numeric.nblocks - 1; block >= 0; block--)
+				{
+					int k1 = Numeric.R[block];
+					int k2 = Numeric.R[block + 1];
+					if (k2 - k1 == 1)
+					{
+						divideFlatColumn(Numeric, x, udiag, udiagInv, k1);
+						continue;
+					}
+					for (int col = k1; col < k2; col++)
+					{
+						double xr = x[2 * col];
+						double xi = x[2 * col + 1];
+						for (int p = directLp[col]; p < directLp[col + 1]; p++)
+						{
+							int xp = 2 * directLi[p];
+							double cr = directLx[2 * p];
+							double ci = directLx[2 * p + 1];
+							x[xp] -= cr * xr - ci * xi;
+							x[xp + 1] -= ci * xr + cr * xi;
+						}
+					}
+					for (int col = k2 - 1; col >= k1; col--)
+					{
+						double ar = x[2 * col];
+						double ai = x[2 * col + 1];
+						int xpivot = 2 * col;
+						double xr;
+						double xi;
+						if (udiagInv != null && udiagInv.length > xpivot + 1)
+						{
+							double invr = udiagInv[xpivot];
+							double invi = udiagInv[xpivot + 1];
+							xr = ar * invr - ai * invi;
+							xi = ar * invi + ai * invr;
+							x[xpivot] = xr;
+							x[xpivot + 1] = xi;
+						}
+						else
+						{
+							Zklu_complex.divide(x, col, ar, ai,
+									udiag[xpivot], udiag[xpivot + 1]);
+							xr = x[xpivot];
+							xi = x[xpivot + 1];
+						}
+						for (int p = directUp[col]; p < directUp[col + 1]; p++)
+						{
+							int xp = 2 * directUi[p];
+							double cr = directUx[2 * p];
+							double ci = directUx[2 * p + 1];
+							x[xp] -= cr * xr - ci * xi;
+							x[xp + 1] -= ci * xr + cr * xi;
+						}
 					}
 				}
+			}
 
-					private static void solveFactoredColumns(KLU_z_numeric Numeric, double[] x)
-					{
+			private static void divideFlatColumn(KLU_z_numeric Numeric, double[] x,
+					double[] udiag, double[] udiagInv, int col)
+			{
+				int xpivot = 2 * col;
+				double ar = x[xpivot];
+				double ai = x[xpivot + 1];
+				if (udiagInv != null && udiagInv.length > xpivot + 1)
+				{
+					double invr = udiagInv[xpivot];
+					double invi = udiagInv[xpivot + 1];
+					x[xpivot] = ar * invr - ai * invi;
+					x[xpivot + 1] = ar * invi + ai * invr;
+					return;
+				}
+				Zklu_complex.divide(x, col, ar, ai,
+						udiag[xpivot], udiag[xpivot + 1]);
+			}
+
+						private static void solveFactoredColumns(KLU_z_numeric Numeric, double[] x)
+						{
 						applyPivots(Numeric, x);
 					for (int block = Numeric.nblocks - 1; block >= 0; block--)
 				{

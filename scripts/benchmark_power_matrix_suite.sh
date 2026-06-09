@@ -11,7 +11,7 @@ CP="$ROOT_DIR/target/classes:$ROOT_DIR/target/test-classes:$(cat "$ROOT_DIR/targ
 
 tmp_csv="$(mktemp)"
 trap 'rm -f "$tmp_csv"' EXIT
-echo "case,status,javaFactorMs,nativeFactorMs,factorPct,javaRefactorMs,nativeRefactorMs,refactorPct,javaSolveMs,nativeSolveMs,solvePct" | tee "$tmp_csv"
+echo "case,status,javaFactorMs,nativeFactorMs,factorPct,javaRefactorMs,nativeRefactorMs,refactorPct,weightedJavaMs,weightedNativeMs,weightedPct,javaSolveMs,nativeSolveMs,solvePct" | tee "$tmp_csv"
 
 while IFS= read -r name; do
   case "$name" in
@@ -58,10 +58,14 @@ j = parse(java_line)
 n = parse(native_line)
 def pct(key):
     return 100.0 * float(n[key]) / float(j[key])
+weighted_java = 0.2 * float(j["factorMs"]) + 0.8 * float(j["refactorMs"])
+weighted_native = 0.2 * float(n["factorMs"]) + 0.8 * float(n["refactorMs"])
 print(",".join([
     name, "OK",
     j["factorMs"], n["factorMs"], f"{pct('factorMs'):.2f}",
     j["refactorMs"], n["refactorMs"], f"{pct('refactorMs'):.2f}",
+    f"{weighted_java:.6f}", f"{weighted_native:.6f}",
+    f"{100.0 * weighted_native / weighted_java:.2f}",
     j["solveMs"], n["solveMs"], f"{pct('solveMs'):.2f}",
 ]))
 PY
@@ -83,6 +87,7 @@ print(",".join([
     "AVERAGE", str(len(rows)),
     f"{avg('javaFactorMs'):.6f}", f"{avg('nativeFactorMs'):.6f}", f"{avg('factorPct'):.2f}",
     f"{avg('javaRefactorMs'):.6f}", f"{avg('nativeRefactorMs'):.6f}", f"{avg('refactorPct'):.2f}",
+    f"{avg('weightedJavaMs'):.6f}", f"{avg('weightedNativeMs'):.6f}", f"{avg('weightedPct'):.2f}",
     f"{avg('javaSolveMs'):.6f}", f"{avg('nativeSolveMs'):.6f}", f"{avg('solvePct'):.2f}",
 ]))
 PY

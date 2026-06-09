@@ -386,15 +386,26 @@ public class Zklu_factor extends Zklu_internal
 				lpend[i] = EMPTY;
 			}
 
-			for (int block = 0; block < Numeric.nblocks; block++)
-			{
-				int k1 = Numeric.R[block];
-				int k2 = Numeric.R[block + 1];
-				for (int k = k1; k < k2; k++)
+				for (int block = 0; block < Numeric.nblocks; block++)
 				{
-					int generation = work.nextGeneration();
-					int reachGeneration = work.nextReachGeneration();
-					int[] stack = work.reachStack;
+					int k1 = Numeric.R[block];
+					int k2 = Numeric.R[block + 1];
+					for (int k = k1; k < k2; k++)
+					{
+						int inputStart = initialColumns.start(k);
+						int inputEnd = initialColumns.end(k);
+						if (isDirectDiagonalColumn(initialColumns, k, inputStart, inputEnd) &&
+								!isZero(initialColumns.real(k, inputStart),
+										initialColumns.imag(k, inputStart)))
+						{
+							recordDirectDiagonalColumn(Numeric, lStore, uStore, luRows,
+									collectRows, profile, k, initialColumns.real(k, inputStart),
+									initialColumns.imag(k, inputStart));
+							continue;
+						}
+						int generation = work.nextGeneration();
+						int reachGeneration = work.nextReachGeneration();
+						int[] stack = work.reachStack;
 					int[] reachMark = work.reachMark;
 					int[] reachPos = work.reachPos;
 					int[] reachRows = work.reachRows;
@@ -402,9 +413,7 @@ public class Zklu_factor extends Zklu_internal
 					int top = n;
 
 						long phase0 = profilePhases ? System.nanoTime() : 0L;
-						int inputStart = initialColumns.start(k);
-						int inputEnd = initialColumns.end(k);
-						if (initialColumns.p != null && !initialColumns.cscView)
+							if (initialColumns.p != null)
 					{
 						int[] inputRows = initialColumns.i;
 						double[] inputValues = initialColumns.x;
@@ -469,15 +478,15 @@ public class Zklu_factor extends Zklu_internal
 					for (int s = top; s < n; s++)
 					{
 						int row = stack[s];
-						if (xr[row] == 0.0 && xi[row] == 0.0)
-						{
-							continue;
-						}
 						double ur = xr[row];
 						double ui = xi[row];
 							xr[row] = 0.0;
 							xi[row] = 0.0;
 							uStore.addFast(row, ur, ui);
+						if (ur == 0.0 && ui == 0.0)
+						{
+							continue;
+						}
 								int lStart = lStore.p[row];
 								int lSize = lStore.len[row];
 								int[] targets = lStore.index;
@@ -588,8 +597,7 @@ public class Zklu_factor extends Zklu_internal
 								maxAbs2 = candidateAbs2;
 							}
 						}
-						if (row <= k || row >= k2 ||
-								(xr[row] == 0.0 && xi[row] == 0.0))
+						if (row <= k || row >= k2)
 						{
 							continue;
 						}
@@ -613,8 +621,11 @@ public class Zklu_factor extends Zklu_internal
 						}
 						long pivotNs = profilePhases ? System.nanoTime() - phase0 : 0L;
 						pruneReachColumns(lStore, uStore, k, lpend);
-					profile.step(k, work.reachCount, lStore.len[k], uStore.len[k],
-							updateCount, luRows);
+					if (profilePhases)
+					{
+						profile.step(k, work.reachCount, lStore.len[k], uStore.len[k],
+								updateCount, luRows);
+					}
 					phase0 = profilePhases ? System.nanoTime() : 0L;
 					clearReachWork(xr, xi, touched, stack, top, n, reachRows,
 							work.reachCount);
@@ -623,7 +634,7 @@ public class Zklu_factor extends Zklu_internal
 						profile.directPhases(scatterNs, updateNs, pivotNs, scaleNs,
 								System.nanoTime() - phase0);
 					}
-					if (profile.shouldStop(k))
+					if (profilePhases && profile.shouldStop(k))
 					{
 						return false;
 					}
@@ -642,11 +653,13 @@ public class Zklu_factor extends Zklu_internal
 			}
 			Common.status = KLU_OK;
 			long finalizeStartNs = profilePhases ? System.nanoTime() : 0L;
-			if (reachUnsortedU && useReachSortCache(n))
-			{
-				sortFlatColumns(uStore, n);
-			}
-			cacheDirectColumnFactors(Numeric, lStore, uStore);
+				if (reachUnsortedU && useReachSortCache(n))
+				{
+					sortFlatColumns(uStore, n);
+				}
+				lStore.finish(n);
+				uStore.finish(n);
+				cacheDirectColumnFactors(Numeric, lStore, uStore);
 			if (materializeRows)
 			{
 				populateSparsePatternState(Numeric, luRows);
@@ -914,22 +927,31 @@ public class Zklu_factor extends Zklu_internal
 			{
 				int k1 = Numeric.R[block];
 				int k2 = Numeric.R[block + 1];
-				if (k2 - k1 == 1)
-				{
-					int k = k1;
-					lStore.startColumn(k);
+					if (k2 - k1 == 1)
+					{
+						int k = k1;
+						lStore.startColumn(k);
+						uStore.startColumn(k);
 					int inputStart = initialColumns.start(k);
 					int inputEnd = initialColumns.end(k);
 					double pr = 0.0;
 					double pi = 0.0;
-					for (int p = inputStart; p < inputEnd; p++)
+					if (isDirectDiagonalColumn(initialColumns, k, inputStart, inputEnd))
 					{
-						if (initialColumns.row(k, p) == k)
+						pr = initialColumns.real(k, inputStart);
+						pi = initialColumns.imag(k, inputStart);
+					}
+					else
+					{
+						for (int p = inputStart; p < inputEnd; p++)
 						{
-							pr += initialColumns.real(k, p);
-							pi += initialColumns.imag(k, p);
+							if (initialColumns.row(k, p) == k)
+							{
+								pr += initialColumns.real(k, p);
+								pi += initialColumns.imag(k, p);
+							}
 						}
-						}
+					}
 						if (pr == 0.0 && pi == 0.0)
 						{
 							Common.status = KLU_SINGULAR;
@@ -950,16 +972,28 @@ public class Zklu_factor extends Zklu_internal
 					{
 						luRows[k].add(k, pr, pi);
 					}
-					profile.step(k, inputEnd - inputStart, 0, 0, 0, luRows);
+					if (profilePhases)
+					{
+						profile.step(k, inputEnd - inputStart, 0, 0, 0, luRows);
+					}
 					continue;
-				}
-				for (int k = k1; k < k2; k++)
-				{
-					int generation = work.nextGeneration();
-					long phase0 = profilePhases ? System.nanoTime() : 0L;
-					int inputStart = initialColumns.start(k);
-					int inputEnd = initialColumns.end(k);
-					for (int p = inputStart; p < inputEnd; p++)
+					}
+					for (int k = k1; k < k2; k++)
+					{
+						int inputStart = initialColumns.start(k);
+						int inputEnd = initialColumns.end(k);
+						if (isDirectDiagonalColumn(initialColumns, k, inputStart, inputEnd) &&
+								!isZero(initialColumns.real(k, inputStart),
+										initialColumns.imag(k, inputStart)))
+						{
+							recordDirectDiagonalColumn(Numeric, lStore, uStore, luRows,
+									collectRows, profile, k, initialColumns.real(k, inputStart),
+									initialColumns.imag(k, inputStart));
+							continue;
+						}
+						int generation = work.nextGeneration();
+						long phase0 = profilePhases ? System.nanoTime() : 0L;
+						for (int p = inputStart; p < inputEnd; p++)
 					{
 						int row = initialColumns.row(k, p);
 							if (row >= k1 && row < k2)
@@ -981,15 +1015,15 @@ public class Zklu_factor extends Zklu_internal
 						{
 							break;
 						}
-							if (xr[row] == 0.0 && xi[row] == 0.0)
-						{
-							continue;
-						}
 						double ur = xr[row];
 						double ui = xi[row];
 						xr[row] = 0.0;
 						xi[row] = 0.0;
 						uStore.add(row, ur, ui);
+						if (ur == 0.0 && ui == 0.0)
+						{
+							continue;
+						}
 							int lStart = lStore.p[row];
 							int lSize = lStore.len[row];
 							int[] targets = lStore.index;
@@ -1041,10 +1075,10 @@ public class Zklu_factor extends Zklu_internal
 									xr[target] -= lr * ur - li * ui;
 									xi[target] -= li * ur + lr * ui;
 								}
-							updateCount += lSize;
-						}
-					}
-					long updateNs = profilePhases ? System.nanoTime() - phase0 : 0L;
+								updateCount += lSize;
+											}
+										}
+								long updateNs = profilePhases ? System.nanoTime() - phase0 : 0L;
 
 					phase0 = profilePhases ? System.nanoTime() : 0L;
 					double pivotAbs2 = absSquared(xr[k], xi[k]);
@@ -1093,8 +1127,7 @@ public class Zklu_factor extends Zklu_internal
 						for (int p = 0; p < touched.size; p++)
 						{
 							int row = touched.values[p];
-							if (row <= k || row >= k2 ||
-									(xr[row] == 0.0 && xi[row] == 0.0))
+							if (row <= k || row >= k2)
 						{
 							continue;
 						}
@@ -1107,8 +1140,11 @@ public class Zklu_factor extends Zklu_internal
 							}
 						}
 						long scaleNs = profilePhases ? System.nanoTime() - phase0 : 0L;
-					profile.step(k, touched.size, lStore.len[k], uStore.len[k],
-							updateCount, luRows);
+					if (profilePhases)
+					{
+						profile.step(k, touched.size, lStore.len[k], uStore.len[k],
+								updateCount, luRows);
+					}
 					phase0 = profilePhases ? System.nanoTime() : 0L;
 					clearWork(xr, xi, touched, active);
 					if (profilePhases)
@@ -1116,7 +1152,7 @@ public class Zklu_factor extends Zklu_internal
 						profile.directPhases(scatterNs, updateNs, pivotNs, scaleNs,
 								System.nanoTime() - phase0);
 					}
-						if (profile.shouldStop(k))
+						if (profilePhases && profile.shouldStop(k))
 						{
 								return false;
 						}
@@ -1124,18 +1160,20 @@ public class Zklu_factor extends Zklu_internal
 			}
 
 			Numeric.pivots = pivots;
-			Numeric.PivotsIdentity = true;
-			Numeric.Pnum = new int[n];
-			Numeric.Pinv = new int[n];
+				Numeric.PivotsIdentity = true;
+				Numeric.Pnum = new int[n];
+				Numeric.Pinv = new int[n];
 			for (int i = 0; i < n; i++)
 			{
 				int oldRow = Numeric.RowPerm == null ? i : Numeric.RowPerm[i];
 				Numeric.Pnum[i] = oldRow;
 				Numeric.Pinv[oldRow] = i;
-			}
-			Common.status = KLU_OK;
-			long finalizeStartNs = profilePhases ? System.nanoTime() : 0L;
-			cacheDirectColumnFactors(Numeric, lStore, uStore);
+				}
+				Common.status = KLU_OK;
+				long finalizeStartNs = profilePhases ? System.nanoTime() : 0L;
+				lStore.finish(n);
+				uStore.finish(n);
+				cacheDirectColumnFactors(Numeric, lStore, uStore);
 			if (materializeRows)
 			{
 				populateSparsePatternState(Numeric, luRows);
@@ -1157,7 +1195,31 @@ public class Zklu_factor extends Zklu_internal
 			return true;
 		}
 
-		private static boolean tryDirectRefactor(KLU_z_numeric Numeric,
+		private static boolean isDirectDiagonalColumn(DirectColumns columns, int k,
+				int inputStart, int inputEnd)
+		{
+			return inputEnd == inputStart + 1 && columns.row(k, inputStart) == k;
+		}
+
+		private static void recordDirectDiagonalColumn(KLU_z_numeric Numeric,
+				FlatColumnStore lStore, FlatColumnStore uStore, RowBuilder[] luRows,
+				boolean collectRows, FactorProfile profile, int k, double pr, double pi)
+		{
+			lStore.startColumn(k);
+			uStore.startColumn(k);
+			Numeric.Udiag[2 * k] = pr;
+			Numeric.Udiag[2 * k + 1] = pi;
+			if (collectRows)
+			{
+				luRows[k].add(k, pr, pi);
+			}
+			if (profile.enabled())
+			{
+				profile.step(k, 1, 0, 0, 0, luRows);
+			}
+		}
+
+			private static boolean tryDirectRefactor(KLU_z_numeric Numeric,
 				DirectColumns initialColumns, FactorProfile profile, KLU_common Common)
 		{
 			int n = Numeric.n;
@@ -1216,7 +1278,10 @@ public class Zklu_factor extends Zklu_internal
 						{
 							luRows[k].add(k, pr, pi);
 						}
-						profile.step(k, inputEnd - inputStart, 0, 0, 0, luRows);
+						if (profilePhases)
+						{
+							profile.step(k, inputEnd - inputStart, 0, 0, 0, luRows);
+						}
 						continue;
 					}
 					for (int k = k1; k < k2; k++)
@@ -1224,7 +1289,7 @@ public class Zklu_factor extends Zklu_internal
 						long phase0 = profilePhases ? System.nanoTime() : 0L;
 							int inputStart = initialColumns.start(k);
 							int inputEnd = initialColumns.end(k);
-							if (initialColumns.p != null)
+							if (initialColumns.p != null && !initialColumns.cscView)
 							{
 								int[] inputRows = initialColumns.i;
 								double[] inputValues = initialColumns.x;
@@ -1324,8 +1389,11 @@ public class Zklu_factor extends Zklu_internal
 							}
 						}
 						long scaleNs = profilePhases ? System.nanoTime() - phase0 : 0L;
-						profile.step(k, inputEnd - inputStart, lLen, uLen,
-								updateCount, luRows);
+						if (profilePhases)
+						{
+							profile.step(k, inputEnd - inputStart, lLen, uLen,
+									updateCount, luRows);
+						}
 						phase0 = profilePhases ? System.nanoTime() : 0L;
 						initialColumns.clear(xr, xi, k);
 						clearRefactorColumn(xr, xi, uRows, k, lRows, uLen, lLen);
@@ -1334,10 +1402,10 @@ public class Zklu_factor extends Zklu_internal
 							profile.directPhases(scatterNs, updateNs, pivotNs, scaleNs,
 									System.nanoTime() - phase0);
 						}
-						if (profile.shouldStop(k))
+						if (profilePhases && profile.shouldStop(k))
 						{
 							return false;
-					}
+						}
 				}
 			}
 			Common.status = KLU_OK;
@@ -1385,14 +1453,22 @@ public class Zklu_factor extends Zklu_internal
 						int inputEnd = initialColumns.end(k);
 						double pr = 0.0;
 						double pi = 0.0;
-						for (int p = inputStart; p < inputEnd; p++)
+						if (isDirectDiagonalColumn(initialColumns, k, inputStart, inputEnd))
 						{
-							if (initialColumns.row(k, p) == k)
+							pr = initialColumns.real(k, inputStart);
+							pi = initialColumns.imag(k, inputStart);
+						}
+						else
+						{
+							for (int p = inputStart; p < inputEnd; p++)
 							{
-								pr += initialColumns.real(k, p);
-								pi += initialColumns.imag(k, p);
+								if (initialColumns.row(k, p) == k)
+								{
+									pr += initialColumns.real(k, p);
+									pi += initialColumns.imag(k, p);
+								}
 							}
-							}
+						}
 							if (pr == 0.0 && pi == 0.0)
 							{
 								return false;
@@ -1403,7 +1479,10 @@ public class Zklu_factor extends Zklu_internal
 						{
 							luRows[k].add(k, pr, pi);
 						}
-						profile.step(k, inputEnd - inputStart, 0, 0, 0, luRows);
+						if (profilePhases)
+						{
+							profile.step(k, inputEnd - inputStart, 0, 0, 0, luRows);
+						}
 						continue;
 					}
 					for (int k = k1; k < k2; k++)
@@ -1449,20 +1528,20 @@ public class Zklu_factor extends Zklu_internal
 							{
 								luRows[row].add(k, ur, ui);
 							}
-							if (ur == 0.0 && ui == 0.0)
-							{
-								continue;
-							}
-
-								for (int lp = Numeric.DirectLp[row]; lp < Numeric.DirectLp[row + 1]; lp++)
+								if (ur == 0.0 && ui == 0.0)
 								{
-									int target = Numeric.DirectLi[lp];
-									double lr = Numeric.DirectLx[2 * lp];
-									double li = Numeric.DirectLx[2 * lp + 1];
-									xr[target] -= lr * ur - li * ui;
-									xi[target] -= li * ur + lr * ui;
-									updateCount++;
+									continue;
 								}
+
+									for (int lp = Numeric.DirectLp[row]; lp < Numeric.DirectLp[row + 1]; lp++)
+									{
+										int target = Numeric.DirectLi[lp];
+										double lr = Numeric.DirectLx[2 * lp];
+										double li = Numeric.DirectLx[2 * lp + 1];
+										xr[target] -= lr * ur - li * ui;
+										xi[target] -= li * ur + lr * ui;
+										updateCount++;
+									}
 							}
 						long updateNs = profilePhases ? System.nanoTime() - phase0 : 0L;
 
@@ -1503,12 +1582,18 @@ public class Zklu_factor extends Zklu_internal
 							}
 						}
 						long scaleNs = profilePhases ? System.nanoTime() - phase0 : 0L;
-						profile.step(k, inputEnd - inputStart,
-								Numeric.DirectLp[k + 1] - Numeric.DirectLp[k],
-								Numeric.DirectUp[k + 1] - Numeric.DirectUp[k],
-								updateCount, luRows);
+						if (profilePhases)
+						{
+							profile.step(k, inputEnd - inputStart,
+									Numeric.DirectLp[k + 1] - Numeric.DirectLp[k],
+									Numeric.DirectUp[k + 1] - Numeric.DirectUp[k],
+									updateCount, luRows);
+						}
 						phase0 = profilePhases ? System.nanoTime() : 0L;
-						initialColumns.clear(xr, xi, k);
+						if (Numeric.nzoff != 0)
+						{
+							initialColumns.clear(xr, xi, k);
+						}
 						xr[k] = 0.0;
 						xi[k] = 0.0;
 						if (profilePhases)
@@ -1516,7 +1601,7 @@ public class Zklu_factor extends Zklu_internal
 							profile.directPhases(scatterNs, updateNs, pivotNs, scaleNs,
 									System.nanoTime() - phase0);
 						}
-						if (profile.shouldStop(k))
+						if (profilePhases && profile.shouldStop(k))
 						{
 						return false;
 					}
@@ -1627,7 +1712,7 @@ public class Zklu_factor extends Zklu_internal
 				return configured.booleanValue();
 			}
 			int minN = Integer.getInteger("jklu.complex.factor.reachKernelMinN",
-						50000).intValue();
+						0).intValue();
 				return n >= minN;
 			}
 
@@ -1652,8 +1737,8 @@ public class Zklu_factor extends Zklu_internal
 			{
 				return configured.booleanValue();
 			}
-			return useReachKernel(n);
-		}
+					return true;
+				}
 
 		private static boolean useReachSortCache(int n)
 		{
@@ -1721,6 +1806,11 @@ public class Zklu_factor extends Zklu_internal
 
 		static void refreshUdiagInverse(KLU_z_numeric Numeric)
 		{
+			if (!Boolean.getBoolean("jklu.complex.factor.precomputeUdiagInv"))
+			{
+				Numeric.UdiagInv = null;
+				return;
+			}
 			int n = Numeric.n;
 			if (Numeric.Udiag == null || Numeric.Udiag.length < 2 * n)
 			{
@@ -1824,9 +1914,13 @@ public class Zklu_factor extends Zklu_internal
 			{
 				return null;
 			}
+			if (!allowDirectColumnKernelForBtf(Numeric))
+			{
+				return null;
+			}
 			int minN = Integer.getInteger("jklu.complex.factor.columnKernelMinN",
 					10000).intValue();
-				if (n < minN)
+				if (n < minN && Numeric.nblocks <= 1)
 				{
 					return null;
 				}
@@ -1842,19 +1936,24 @@ public class Zklu_factor extends Zklu_internal
 						{
 							return new DirectColumns(Numeric);
 						}
-				if (Numeric.DirectColumnRows == null && Numeric.DirectColumnP == null)
-				{
-					buildDirectColumnPattern(Numeric, Common);
-					if (Common.status < KLU_OK)
-				{
-					return null;
+					boolean builtPattern = false;
+					if (Numeric.DirectColumnRows == null && Numeric.DirectColumnP == null)
+					{
+						buildDirectColumnPattern(Numeric, Common);
+						if (Common.status < KLU_OK)
+					{
+						return null;
+					}
+						builtPattern = true;
 				}
-			}
-			refillDirectColumnValues(Numeric, Common);
-			if (Common.status < KLU_OK)
-			{
-				return null;
-			}
+				if (!builtPattern)
+				{
+					refillDirectColumnValues(Numeric, Common);
+					if (Common.status < KLU_OK)
+					{
+						return null;
+					}
+				}
 			if (Numeric.DirectColumnP != null)
 			{
 				return new DirectColumns(Numeric.DirectColumnP, Numeric.DirectColumnI,
@@ -1862,6 +1961,12 @@ public class Zklu_factor extends Zklu_internal
 			}
 			return new DirectColumns(Numeric.DirectColumnRows, Numeric.DirectColumnReal,
 					Numeric.DirectColumnImag);
+		}
+
+		private static boolean allowDirectColumnKernelForBtf(KLU_z_numeric Numeric)
+		{
+			return !Boolean.getBoolean(
+					"jklu.complex.factor.disableFragmentedBtfColumnKernel");
 		}
 
 		private static boolean hasBlockDiagonalCandidates(KLU_z_numeric Numeric,
@@ -1908,11 +2013,12 @@ public class Zklu_factor extends Zklu_internal
 				Common.status = KLU_OK;
 				return;
 			}
-				int[] counts = new int[n];
-				int[] offCounts = new int[n];
-				for (int oldCol = 0; oldCol < n; oldCol++)
-				{
-					int col = Numeric.ColInv == null ? oldCol : Numeric.ColInv[oldCol];
+					int[] counts = new int[n];
+					int[] offCounts = new int[n];
+					boolean[] diagonalFound = new boolean[n];
+					for (int oldCol = 0; oldCol < n; oldCol++)
+					{
+						int col = Numeric.ColInv == null ? oldCol : Numeric.ColInv[oldCol];
 					for (int p = Numeric.Ap[oldCol]; p < Numeric.Ap[oldCol + 1]; p++)
 				{
 					int oldRow = Numeric.Ai[p];
@@ -1922,17 +2028,22 @@ public class Zklu_factor extends Zklu_internal
 						return;
 					}
 					int row = Numeric.RowInv == null ? oldRow : Numeric.RowInv[oldRow];
-					if (Numeric.BlockOf[row] == Numeric.BlockOf[col])
-					{
-						counts[col]++;
-					}
-					else
-					{
+						if (Numeric.BlockOf[row] == Numeric.BlockOf[col])
+						{
+							counts[col]++;
+							if (row == col)
+							{
+								diagonalFound[col] = true;
+							}
+						}
+						else
+						{
 						offCounts[col]++;
 				}
+					}
 				}
-			}
-			Numeric.DirectColumnRows = new int[n][];
+				Numeric.DirectHasBlockDiagonalCandidates = allTrue(diagonalFound) ? 1 : -1;
+				Numeric.DirectColumnRows = new int[n][];
 			Numeric.DirectColumnReal = new double[n][];
 			Numeric.DirectColumnImag = new double[n][];
 			if (packedInput)
@@ -1971,28 +2082,40 @@ public class Zklu_factor extends Zklu_internal
 		{
 			int col = Numeric.ColInv == null ? oldCol : Numeric.ColInv[oldCol];
 			for (int p = Numeric.Ap[oldCol]; p < Numeric.Ap[oldCol + 1]; p++)
-			{
-				int oldRow = Numeric.Ai[p];
-				int row = Numeric.RowInv == null ? oldRow : Numeric.RowInv[oldRow];
-				if (Numeric.BlockOf[row] == Numeric.BlockOf[col])
 				{
-					if (packedInput)
+					int oldRow = Numeric.Ai[p];
+					int row = Numeric.RowInv == null ? oldRow : Numeric.RowInv[oldRow];
+					double scale = Numeric.Rs == null ? 1.0 : Numeric.Rs[oldRow];
+					double re = Numeric.Ax[2 * p] / scale;
+					double im = Numeric.Ax[2 * p + 1] / scale;
+					if (Numeric.BlockOf[row] == Numeric.BlockOf[col])
 					{
-						Numeric.DirectColumnI[Numeric.DirectColumnNext[col]++] = row;
+						if (packedInput)
+						{
+							int q = Numeric.DirectColumnNext[col]++;
+							Numeric.DirectColumnI[q] = row;
+							Numeric.DirectColumnX[2 * q] = re;
+							Numeric.DirectColumnX[2 * q + 1] = im;
+						}
+						else
+						{
+							int q = Numeric.DirectColumnNext[col]++;
+							Numeric.DirectColumnRows[col][q] = row;
+							Numeric.DirectColumnReal[col][q] = re;
+							Numeric.DirectColumnImag[col][q] = im;
+						}
 					}
 					else
 					{
-						Numeric.DirectColumnRows[col][Numeric.DirectColumnNext[col]++] = row;
+						if (offNext != null)
+						{
+							int q = offNext[col]++;
+							Numeric.Offi[q] = row;
+							Numeric.Offx[2 * q] = re;
+							Numeric.Offx[2 * q + 1] = im;
+						}
 					}
 				}
-				else
-				{
-					if (offNext != null)
-					{
-						Numeric.Offi[offNext[col]++] = row;
-					}
-				}
-			}
 		}
 	}
 
@@ -2002,13 +2125,14 @@ public class Zklu_factor extends Zklu_internal
 			Numeric.DirectColumnRows = null;
 			Numeric.DirectColumnReal = null;
 			Numeric.DirectColumnImag = null;
-				Numeric.DirectColumnP = new int[n + 1];
-				int[] counts = new int[n];
-				for (int oldCol = 0; oldCol < n; oldCol++)
-				{
-					int col = Numeric.ColInv == null ? oldCol : Numeric.ColInv[oldCol];
-					counts[col] = Numeric.Ap[oldCol + 1] - Numeric.Ap[oldCol];
-				}
+					Numeric.DirectColumnP = new int[n + 1];
+					int[] counts = new int[n];
+					boolean[] diagonalFound = new boolean[n];
+					for (int oldCol = 0; oldCol < n; oldCol++)
+					{
+						int col = Numeric.ColInv == null ? oldCol : Numeric.ColInv[oldCol];
+						counts[col] = Numeric.Ap[oldCol + 1] - Numeric.Ap[oldCol];
+					}
 			for (int col = 0; col < n; col++)
 			{
 				Numeric.DirectColumnP[col + 1] = Numeric.DirectColumnP[col] + counts[col];
@@ -2024,11 +2148,21 @@ public class Zklu_factor extends Zklu_internal
 				int col = Numeric.ColInv == null ? oldCol : Numeric.ColInv[oldCol];
 					for (int p = Numeric.Ap[oldCol]; p < Numeric.Ap[oldCol + 1]; p++)
 					{
-						int oldRow = Numeric.Ai[p];
-						int row = Numeric.RowInv == null ? oldRow : Numeric.RowInv[oldRow];
-						Numeric.DirectColumnI[Numeric.DirectColumnNext[col]++] = row;
-					}
-				}
+							int oldRow = Numeric.Ai[p];
+							int row = Numeric.RowInv == null ? oldRow : Numeric.RowInv[oldRow];
+								int q = Numeric.DirectColumnNext[col]++;
+								double scale = Numeric.Rs == null ? 1.0 : Numeric.Rs[oldRow];
+								Numeric.DirectColumnI[q] = row;
+								Numeric.DirectColumnX[2 * q] = Numeric.Ax[2 * p] / scale;
+								Numeric.DirectColumnX[2 * q + 1] =
+										Numeric.Ax[2 * p + 1] / scale;
+								if (row == col)
+								{
+									diagonalFound[col] = true;
+								}
+							}
+						}
+				Numeric.DirectHasBlockDiagonalCandidates = allTrue(diagonalFound) ? 1 : -1;
 			}
 
 		private static void refillDirectColumnValues(KLU_z_numeric Numeric,
@@ -2314,6 +2448,18 @@ public class Zklu_factor extends Zklu_internal
 		private static boolean isZero(double re, double im)
 		{
 			return Math.abs(re) <= DROP_TOL && Math.abs(im) <= DROP_TOL;
+		}
+
+		private static boolean allTrue(boolean[] values)
+		{
+			for (int i = 0; i < values.length; i++)
+			{
+				if (!values[i])
+				{
+					return false;
+				}
+			}
+			return true;
 		}
 
 	private static void ensureSymbolicState(KLU_z_numeric Numeric)
@@ -3071,13 +3217,18 @@ public class Zklu_factor extends Zklu_internal
 				}
 
 					void startColumn(int col)
+						{
+							currentCol = col;
+							p[col] = size;
+							len[col] = 0;
+						}
+
+					void finish(int n)
 					{
-						currentCol = col;
-						p[col] = size;
-						len[col] = 0;
+						p[n] = size;
 					}
 
-				void add(int row, double re, double im)
+					void add(int row, double re, double im)
 				{
 					ensure(size + 1);
 					index[size] = row;

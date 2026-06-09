@@ -162,8 +162,11 @@ public class Zklu_simple extends TestCase {
 
 	public void test_klu_z_direct_flat_refactor_solve_and_extract_use_new_values() {
 		String oldMinN = System.getProperty("jklu.complex.factor.columnKernelMinN");
+		String oldPrecompute = System.getProperty(
+				"jklu.complex.factor.precomputeUdiagInv");
 		try {
 			System.setProperty("jklu.complex.factor.columnKernelMinN", "0");
+			System.setProperty("jklu.complex.factor.precomputeUdiagInv", "true");
 			int n = 2;
 			int[] Ap = {0, 2, 4};
 			int[] Ai = {0, 1, 0, 1};
@@ -214,6 +217,7 @@ public class Zklu_simple extends TestCase {
 			assertEquals(4.5, findExtractedValue(Up, Ui, Ux, 1, 1, true), DELTA);
 		} finally {
 			restoreProperty("jklu.complex.factor.columnKernelMinN", oldMinN);
+			restoreProperty("jklu.complex.factor.precomputeUdiagInv", oldPrecompute);
 		}
 	}
 
@@ -450,6 +454,52 @@ public class Zklu_simple extends TestCase {
 		}
 	}
 
+	public void test_klu_z_fragmented_btf_direct_kernel_solves_offdiagonal() {
+		String oldMinN = System.getProperty("jklu.complex.factor.columnKernelMinN");
+		String oldDisable = System.getProperty(
+				"jklu.complex.factor.disableFragmentedBtfColumnKernel");
+		try {
+			System.setProperty("jklu.complex.factor.columnKernelMinN", "0");
+			System.clearProperty("jklu.complex.factor.disableFragmentedBtfColumnKernel");
+			int n = 3;
+			int[] Ap = {0, 1, 2, 4};
+			int[] Ai = {0, 1, 0, 2};
+			double[] Ax = {
+				2., 0.,
+				3., 0.,
+				5., 1.,
+				4., 0.
+			};
+			double[] b = {
+				11., 1.,
+				6., 0.,
+				4., 0.
+			};
+
+			KLU_common Common = new KLU_common();
+			klu_defaults(Common);
+			Common.scale = 0;
+			KLU_symbolic Symbolic = klu_analyze(n, Ap, Ai, Common);
+			KLU_z_numeric Numeric = klu_z_factor(Ap, Ai, Ax, Symbolic, Common);
+			assertNotNull(Numeric);
+			assertTrue(Numeric.nblocks > 1);
+			assertNotNull(Numeric.DirectLp);
+			assertNotNull(Numeric.DirectUp);
+
+			assertEquals(1, klu_z_solve(Symbolic, Numeric, n, 1, b, Common));
+			assertEquals(3.0, b[0], DELTA);
+			assertEquals(0.0, b[1], DELTA);
+			assertEquals(2.0, b[2], DELTA);
+			assertEquals(0.0, b[3], DELTA);
+			assertEquals(1.0, b[4], DELTA);
+			assertEquals(0.0, b[5], DELTA);
+		} finally {
+			restoreProperty("jklu.complex.factor.columnKernelMinN", oldMinN);
+			restoreProperty("jklu.complex.factor.disableFragmentedBtfColumnKernel",
+					oldDisable);
+		}
+	}
+
 	public void test_klu_z_numeric_uses_sparse_complex_storage() {
 		int n = 5;
 		int[] Ap = {0, 1, 2, 3, 4, 5};
@@ -467,13 +517,11 @@ public class Zklu_simple extends TestCase {
 		KLU_symbolic Symbolic = klu_analyze(n, Ap, Ai, Common);
 		KLU_z_numeric Numeric = klu_z_factor(Ap, Ai, Ax, Symbolic, Common);
 		assertNotNull(Numeric);
-		assertNotNull(Numeric.LUrowCols);
-		assertEquals(0, Numeric.LUbx[0].length);
+		assertNotNull(Numeric.DirectLp);
+		assertNotNull(Numeric.DirectUp);
+		assertNotNull(Numeric.Udiag);
 
-		int stored = 0;
-		for (int row = 0; row < n; row++) {
-			stored += Numeric.LUrowCols[row].length;
-		}
+		int stored = Numeric.DirectLp[n] + Numeric.DirectUp[n] + Numeric.Udiag.length / 2;
 		assertEquals(n, stored);
 		assertTrue("sparse LU storage should not allocate n*n entries", stored < n * n);
 	}
