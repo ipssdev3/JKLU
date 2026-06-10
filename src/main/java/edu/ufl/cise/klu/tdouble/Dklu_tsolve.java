@@ -108,7 +108,12 @@ public class Dklu_tsolve extends Dklu_internal {
 		Udiag = Numeric.Udiag ;
 
 		Rs = Numeric.Rs ;
-		X = Numeric.Xwork ;
+		/*
+		 * SuiteSparse KLU stores solve workspace in Numeric. In Java, Numeric can be
+		 * shared by concurrent callers, so use per-call workspace to keep solves
+		 * reentrant.
+		 */
+		X = new double[MIN(nrhs, 4) * n] ;
 		if (!NDEBUG) ASSERT (klu_valid (n, Offp, Offi, Offx)) ;
 
 		/* ---------------------------------------------------------------------- */

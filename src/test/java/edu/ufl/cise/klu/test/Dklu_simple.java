@@ -1,5 +1,8 @@
 package edu.ufl.cise.klu.test;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
+
 import junit.framework.TestCase;
 import edu.ufl.cise.klu.common.KLU_common;
 import edu.ufl.cise.klu.common.KLU_numeric;
@@ -35,11 +38,51 @@ public class Dklu_simple extends TestCase {
 		klu_defaults (Common);
 		Symbolic = klu_analyze (n, Ap, Ai, Common);
 		Numeric = klu_factor (Ap, Ai, Ax, Symbolic, Common);
-		klu_solve (Symbolic, Numeric, 5, 1, b, 0, Common);
+		double[] rhs = b.clone();
+		klu_solve (Symbolic, Numeric, 5, 1, rhs, 0, Common);
 
 		for (i = 0 ; i < n ; i++) {
-			System.out.printf("x [%d] = %g\n", i, b [i]) ;
-			assertEquals(i + 1.0, b [i], DELTA) ;
+			System.out.printf("x [%d] = %g\n", i, rhs [i]) ;
+			assertEquals(i + 1.0, rhs [i], DELTA) ;
+		}
+	}
+
+	public static void test_klu_solve_concurrent_calls_use_independent_workspace() throws Exception {
+		final KLU_common Common = new KLU_common();
+		klu_defaults(Common);
+		final KLU_symbolic Symbolic = klu_analyze(n, Ap, Ai, Common);
+		final KLU_numeric Numeric = klu_factor(Ap, Ai, Ax, Symbolic, Common);
+		final AtomicReference<Throwable> failure = new AtomicReference<Throwable>();
+		final CountDownLatch start = new CountDownLatch(1);
+		Thread[] threads = new Thread[8];
+
+		for (int t = 0; t < threads.length; t++) {
+			threads[t] = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						start.await();
+						for (int repeat = 0; repeat < 200; repeat++) {
+							double[] rhs = b.clone();
+							assertEquals(1, klu_solve(Symbolic, Numeric, n, 1, rhs, 0, Common));
+							for (int i = 0; i < n; i++) {
+								assertEquals(i + 1.0, rhs[i], DELTA);
+							}
+						}
+					} catch (Throwable e) {
+						failure.compareAndSet(null, e);
+					}
+				}
+			});
+			threads[t].start();
+		}
+
+		start.countDown();
+		for (int t = 0; t < threads.length; t++) {
+			threads[t].join();
+		}
+		if (failure.get() != null) {
+			throw new AssertionError(failure.get());
 		}
 	}
 
