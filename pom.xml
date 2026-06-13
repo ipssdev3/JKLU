@@ -71,7 +71,7 @@
   	<dependency>
   		<groupId>com.github.rwl</groupId>
   		<artifactId>AMDJ</artifactId>
-  		<version>1.0.2-SNAPSHOT</version>
+  		<version>1.0.3</version>
   	</dependency>
   	<dependency>
   		<groupId>com.github.rwl</groupId>
@@ -216,5 +216,18 @@
       </plugin>
     </plugins>
   </reporting>
+
+   <distributionManagement>
+        <repository>
+            <id>codeartifact</id>
+            <name>ipss-maven-release</name>
+            <url>https://ipss-078183419290.d.codeartifact.us-east-1.amazonaws.com/maven/maven-release/</url>
+        </repository>
+        <snapshotRepository>
+            <id>codeartifact</id>
+            <name>ipss-maven-snapshot</name>
+            <url>https://ipss-078183419290.d.codeartifact.us-east-1.amazonaws.com/maven/maven-snapshot/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
 </project>
