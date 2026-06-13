@@ -232,8 +232,8 @@ c++ -O3 -std=c++17 \
   -o /private/tmp/native_klu_z_bench
 
 /private/tmp/native_klu_z_bench \
-  target/ipss-matrices/OpenEI-ymatrix.mtx \
-  target/ipss-matrices/OpenEI-rhs.mtx 10 50
+  src/test/resources/ipss-matrices/OpenEI-ymatrix.mtx \
+  src/test/resources/ipss-matrices/OpenEI-rhs.mtx 10 50
 ```
 
 Native parity measurements must separate:
@@ -326,7 +326,7 @@ Broad-suite baseline, captured after the OpenEI-specific solve-alias cleanup:
 
 - InterPSS `ACTIVSg25k` export now runs through
   `JkluPowerSystemMatrixExportTest` and produced
-  `target/ipss-matrices/ACTIVSg25k-ymatrix.mtx`, `n=25000`, `nnz=85220`.
+  `src/test/resources/ipss-matrices/ACTIVSg25k-ymatrix.mtx`, `n=25000`, `nnz=85220`.
   A 10/50 reuse-symbolic pair measured JKLU `factor=6.507749 ms`,
   `refactor=2.635018 ms`, `solve=0.418083 ms`; native KLU measured
   `factor=3.531880 ms`, `refactor=1.503000 ms`, `solve=0.321021 ms`.
@@ -439,7 +439,7 @@ mvn -pl ipss.plugin.core -Dtest=KlusolveXSparseEqnSolverProviderTest \
 
 ```bash
 mvn -pl ipss.test.plugin.core -Dtest=JkluPowerSystemMatrixExportTest \
-  -Djklu.matrix.export.dir=/Users/ipssdev/github/JKLU/target/ipss-matrices \
+  -Djklu.matrix.export.dir=/Users/ipssdev/github/JKLU/src/test/resources/ipss-matrices \
   -Djklu.matrix.export.cases=BUS1824,BUS6384,BUS11856 \
   test
 ```
@@ -448,7 +448,7 @@ mvn -pl ipss.test.plugin.core -Dtest=JkluPowerSystemMatrixExportTest \
 
 ```bash
 mvn -pl ipss.test.plugin.core -Dtest=JkluPowerSystemMatrixExportTest \
-  -Djklu.matrix.export.dir=/Users/ipssdev/github/JKLU/target/ipss-matrices \
+  -Djklu.matrix.export.dir=/Users/ipssdev/github/JKLU/src/test/resources/ipss-matrices \
   -Djklu.matrix.export.cases=OpenEI \
   -DargLine=-Xmx16g \
   test
@@ -458,10 +458,10 @@ mvn -pl ipss.test.plugin.core -Dtest=JkluPowerSystemMatrixExportTest \
 
 | Case | n | nnz(A) | Matrix | RHS |
 | --- | ---: | ---: | --- | --- |
-| BUS1824 | 1,824 | 6,816 | `target/ipss-matrices/BUS1824-ymatrix.mtx` | `target/ipss-matrices/BUS1824-rhs.mtx` |
-| BUS6384 | 6,384 | 23,856 | `target/ipss-matrices/BUS6384-ymatrix.mtx` | `target/ipss-matrices/BUS6384-rhs.mtx` |
-| BUS11856 | 11,856 | 44,304 | `target/ipss-matrices/BUS11856-ymatrix.mtx` | `target/ipss-matrices/BUS11856-rhs.mtx` |
-| OpenEI | 78,484 | 294,398 | `target/ipss-matrices/OpenEI-ymatrix.mtx` | `target/ipss-matrices/OpenEI-rhs.mtx` |
+| BUS1824 | 1,824 | 6,816 | `src/test/resources/ipss-matrices/BUS1824-ymatrix.mtx` | `src/test/resources/ipss-matrices/BUS1824-rhs.mtx` |
+| BUS6384 | 6,384 | 23,856 | `src/test/resources/ipss-matrices/BUS6384-ymatrix.mtx` | `src/test/resources/ipss-matrices/BUS6384-rhs.mtx` |
+| BUS11856 | 11,856 | 44,304 | `src/test/resources/ipss-matrices/BUS11856-ymatrix.mtx` | `src/test/resources/ipss-matrices/BUS11856-rhs.mtx` |
+| OpenEI | 78,484 | 294,398 | `src/test/resources/ipss-matrices/OpenEI-ymatrix.mtx` | `src/test/resources/ipss-matrices/OpenEI-rhs.mtx` |
 
   Current JKLU direct-complex replay evidence after applying `Symbolic.P/Q`
   permutation in the complex factor/solve path, single cold iteration with no
@@ -972,7 +972,7 @@ mvn -pl ipss.test.plugin.core -Dtest=JkluPowerSystemMatrixExportTest \
 ```bash
 java -Xmx8g -cp target/classes:target/test-classes:$(cat target/benchmark-classpath.txt) \
   edu.ufl.cise.klu.bench.ZkluMatrixMarketStructureProfile \
-  target/ipss-matrices/OpenEI-ymatrix.mtx
+  src/test/resources/ipss-matrices/OpenEI-ymatrix.mtx
 ```
 
 | Case | Undirected islands | Largest island | BTF blocks | Max BTF block | Singleton islands | Analyze ms |
@@ -996,8 +996,8 @@ java -Xmx8g -Djklu.profile.factor=true \
   -Djklu.profile.factor.maxPivots=5000 \
   -cp target/classes:target/test-classes:$(cat target/benchmark-classpath.txt) \
   edu.ufl.cise.klu.bench.ZkluMatrixMarketBenchmark \
-  target/ipss-matrices/OpenEI-ymatrix.mtx \
-  target/ipss-matrices/OpenEI-rhs.mtx 0 1
+  src/test/resources/ipss-matrices/OpenEI-ymatrix.mtx \
+  src/test/resources/ipss-matrices/OpenEI-rhs.mtx 0 1
 ```
 
   Initial factor profile before symbolic permutation:

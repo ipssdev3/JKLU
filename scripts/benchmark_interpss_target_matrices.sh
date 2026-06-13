@@ -112,11 +112,11 @@ PY
   esac
 }
 
-run_case Ckt24 "$ROOT_DIR/target/ipss-matrices/Ckt24-ymatrix.mtx" "$ROOT_DIR/target/ipss-matrices/Ckt24-rhs.mtx" 70
-run_case IEEE8500 "$ROOT_DIR/target/ipss-matrices/IEEE8500-ymatrix.mtx" "$ROOT_DIR/target/ipss-matrices/IEEE8500-rhs.mtx" 70
-run_case ACTIVSg25k "$ROOT_DIR/target/ipss-matrices/ACTIVSg25k-ymatrix.mtx" "$ROOT_DIR/target/ipss-matrices/ACTIVSg25k-rhs.mtx" 80
+run_case Ckt24 "$ROOT_DIR/src/test/resources/ipss-matrices/Ckt24-ymatrix.mtx" "$ROOT_DIR/src/test/resources/ipss-matrices/Ckt24-rhs.mtx" 70
+run_case IEEE8500 "$ROOT_DIR/src/test/resources/ipss-matrices/IEEE8500-ymatrix.mtx" "$ROOT_DIR/src/test/resources/ipss-matrices/IEEE8500-rhs.mtx" 70
+run_case ACTIVSg25k "$ROOT_DIR/src/test/resources/ipss-matrices/ACTIVSg25k-ymatrix.mtx" "$ROOT_DIR/src/test/resources/ipss-matrices/ACTIVSg25k-rhs.mtx" 80
 run_case ACTIVSg70K "$ROOT_DIR/target/tamu-power-matrices/ACTIVSg70K/ACTIVSg70K.mtx" - 80
-run_case OpenEI "$ROOT_DIR/target/ipss-matrices/OpenEI-ymatrix.mtx" "$ROOT_DIR/target/ipss-matrices/OpenEI-rhs.mtx" 80
+run_case OpenEI "$ROOT_DIR/src/test/resources/ipss-matrices/OpenEI-ymatrix.mtx" "$ROOT_DIR/src/test/resources/ipss-matrices/OpenEI-rhs.mtx" 80
 
 if [ -s "$tmp_status" ]; then
   exit 1
