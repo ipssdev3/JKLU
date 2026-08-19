@@ -12,6 +12,7 @@ import static edu.ufl.cise.klu.tdouble.Dklu_defaults.klu_defaults;
 import static edu.ufl.cise.klu.tdouble.Dklu_analyze.klu_analyze;
 import static edu.ufl.cise.klu.tdouble.Dklu_factor.klu_factor;
 import static edu.ufl.cise.klu.tdouble.Dklu_solve.klu_solve;
+import static edu.ufl.cise.klu.tdouble.Dklu.klu_usolve;
 
 public class Dklu_simple extends TestCase {
 
@@ -83,6 +84,41 @@ public class Dklu_simple extends TestCase {
 		}
 		if (failure.get() != null) {
 			throw new AssertionError(failure.get());
+		}
+	}
+
+	public static void test_klu_solve_accepts_caller_workspace() {
+		KLU_common Common = new KLU_common();
+		klu_defaults(Common);
+		KLU_symbolic Symbolic = klu_analyze(n, Ap, Ai, Common);
+		KLU_numeric Numeric = klu_factor(Ap, Ai, Ax, Symbolic, Common);
+		double[] rhs = b.clone();
+		double[] workspace = new double[4 * n];
+
+		assertEquals(1, klu_solve(Symbolic, Numeric, n, 1, rhs, 0, workspace, Common));
+		for (int i = 0; i < n; i++) {
+			assertEquals(i + 1.0, rhs[i], DELTA);
+		}
+
+		double[] tooSmall = new double[n - 1];
+		assertEquals(0, klu_solve(
+				Symbolic, Numeric, n, 1, b.clone(), 0, tooSmall, Common));
+	}
+
+	public static void test_klu_usolve_three_rhs_honors_x_offset() {
+		int[] Uip = {0, 0};
+		int[] Ulen = {0, 0};
+		double[] Udiag = {2.0, 4.0};
+		double[] x = new double[11];
+		int offset = 5;
+		double[] input = {2.0, 4.0, 6.0, 8.0, 12.0, 16.0};
+		System.arraycopy(input, 0, x, offset, input.length);
+
+		klu_usolve(2, Uip, 0, Ulen, 0, new double[0], Udiag, 0, 3, x, offset);
+
+		double[] expected = {1.0, 2.0, 3.0, 2.0, 3.0, 4.0};
+		for (int i = 0; i < expected.length; i++) {
+			assertEquals(expected[i], x[offset + i], DELTA);
 		}
 	}
 

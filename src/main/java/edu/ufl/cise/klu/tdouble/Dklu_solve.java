@@ -35,9 +35,9 @@ import static edu.ufl.cise.klu.tdouble.Dklu.klu_usolve;
 /**
  * Solve Ax=b using the symbolic and numeric objects from KLU_analyze
  * (or KLU_analyze_given) and KLU_factor.  Note that no iterative refinement is
- * performed.  Uses Numeric.Xwork as workspace (undefined on input and output),
- * of size 4n double's (note that columns 2 to 4 of Xwork overlap with
- * Numeric.Iwork).
+ * performed. The reentrant overload allocates per-call workspace; callers that
+ * already serialize access to a numeric factorization can provide reusable
+ * workspace through the overload that accepts a {@code double[]}.
  */
 public class Dklu_solve extends Dklu_internal {
 
@@ -54,6 +54,22 @@ public class Dklu_solve extends Dklu_internal {
 	 */
 	public static int klu_solve(KLU_symbolic Symbolic, KLU_numeric Numeric,
 			int d, int nrhs, double[] B, int B_offset, KLU_common Common)
+	{
+		return klu_solve(Symbolic, Numeric, d, nrhs, B, B_offset, null, Common);
+	}
+
+	/**
+	 * Solves with caller-owned workspace. The workspace must not be shared by
+	 * concurrent solves and must contain at least {@code min(nrhs, 4) * n}
+	 * elements. This overload avoids allocating a dense solve workspace on every
+	 * call while the original overload remains reentrant.
+	 *
+	 * @param workspace caller-owned dense solve workspace
+	 * @return {@code TRUE} on success, otherwise {@code FALSE}
+	 */
+	public static int klu_solve(KLU_symbolic Symbolic, KLU_numeric Numeric,
+			int d, int nrhs, double[] B, int B_offset, double[] workspace,
+			KLU_common Common)
 	{
 		double offik, s ;
 		double[] x = new double[4] ;
@@ -107,12 +123,13 @@ public class Dklu_solve extends Dklu_internal {
 		Udiag = Numeric.Udiag ;
 
 		Rs = Numeric.Rs ;
-		/*
-		 * SuiteSparse KLU stores solve workspace in Numeric. In Java, Numeric can be
-		 * shared by concurrent callers, so use per-call workspace to keep solves
-		 * reentrant.
-		 */
-		X = new double[MIN(nrhs, 4) * n] ;
+		int workspaceLength = MIN(nrhs, 4) * n ;
+		if (workspace != null && workspace.length < workspaceLength)
+		{
+			Common.status = KLU_INVALID ;
+			return (FALSE) ;
+		}
+		X = workspace != null ? workspace : new double[workspaceLength] ;
 
 		if (!NDEBUG) ASSERT (klu_valid (n, Offp, Offi, Offx)) ;
 

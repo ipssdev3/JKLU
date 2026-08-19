@@ -429,9 +429,9 @@ public class Dklu extends Dklu_internal {
 					//DIV (x [2], X [3*k + 2], ukk) ;
 					x [2] = X [X_offset + 3*k + 2] / ukk ;
 
-					X [3*k    ] = x [0] ;
-					X [3*k + 1] = x [1] ;
-					X [3*k + 2] = x [2] ;
+					X [X_offset + 3*k    ] = x [0] ;
+					X [X_offset + 3*k + 1] = x [1] ;
+					X [X_offset + 3*k + 2] = x [2] ;
 					for (p = 0 ; p < len[0] ; p++)
 					{
 						i = (int) Ui [Ui_offset[0] + p] ;
